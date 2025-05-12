@@ -1,0 +1,6 @@
+-   id: ai-commiter
+    name: AI commiter
+    description: AI-powered commit message helper
+    entry: ai-commiter
+    language: python
+    types: [python]
