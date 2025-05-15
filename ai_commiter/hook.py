@@ -6,8 +6,10 @@ FAIL = 1
 
 def get_diff():
     #returns diff data
-    result = subprocess.run(['git', 'diff', '--staged'], captured_output=True, text=True)
-    return result.stdout
+    print("starting get_diff func")
+    result = subprocess.run(['git', 'diff', '--staged'], capture_output=True, text=True).stdout
+    print(result)
+    return result
 def create_commit_message(commit_file_path, diff_data):
     #uses data from get_diff() and writes to the commit file, will return PASS or FAIL
     pass
