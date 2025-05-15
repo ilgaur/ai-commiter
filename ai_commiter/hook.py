@@ -10,6 +10,8 @@ def create_commit_message(commit_file_path, diff_data):
     #uses data from get_diff() and writes to the commit file, will return PASS or FAIL
 
 def main():
+    if len(sys.argv) < 2:
+        return FAIL
     commit_msg_file = sys.argv[1]
     diff_data = get_diff()
     result = create_commit_message(commit_msg_file, diff_data)
