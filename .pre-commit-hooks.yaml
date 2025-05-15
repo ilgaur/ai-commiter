@@ -1,6 +1,8 @@
--   id: ai-commiter
-    name: AI commiter
-    description: AI-powered commit message helper
-    entry: ai-commiter
-    language: python
-    types: [python]
+repos:
+  - repo: local
+    hooks:
+      - id: ai-message
+        name: Generate commit message
+        entry: ai-commiter
+        language: python
+        stages: [commit-msg]
