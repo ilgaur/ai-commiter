@@ -10,10 +10,23 @@ def get_diff():
     result = subprocess.run(['git', 'diff', '--staged'], capture_output=True, text=True).stdout
     return result
 
+def get_api_config():
+    try:
+        api_key = subprocess.check_output(['git', 'config', 'ai-commiter.api-key'], text=True).strip()
+        base_url = subprocess.check_output(['git', 'config', 'ai-commiter.base-url'], text=True).strip()
+        print(f"Retrieved API key: {api_key}")
+        print(f"Retrieved API key: {base_url}")
+        return api_key, base_url
+    except Exception as e:
+        print(f"Error retrieving config: {e}")
+        return None, None
+
 def generate_commit_msg(diff_data):
+    api_key, base_url = get_api_config()
+
     client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key="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",
+        base_url=base_url,
+        api_key=api_key,
     )
 
     completion = client.chat.completions.create(
@@ -36,17 +49,19 @@ def write_commit_message(commit_file_path, commit_msg):
     #uses data from get_diff() and writes to the commit file, will return PASS or FAIL
     print(f"Received commit file path: {commit_file_path}")
     print(f"Diff data length: {len(commit_msg)}")
-    print(f"First 100 chars of diff: {commit_msg[:100]}")
+    print(f"First 100 chars of diff: {commit_msg}")
     return PASS
 
 def main():
     if len(sys.argv) < 2:
         return FAIL
+    # get_api_config()
     commit_msg_file = sys.argv[1]
     diff_data = get_diff()
+
 #   print(diff_data)
     commit_message = generate_commit_msg(diff_data)
-    if commit_message is None
+    if commit_message is None:
         return FAIL
     result = write_commit_message(commit_msg_file, commit_message)
     return result
