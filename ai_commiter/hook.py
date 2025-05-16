@@ -24,6 +24,9 @@ def get_api_config():
 def generate_commit_msg(diff_data):
     api_key, base_url = get_api_config()
 
+    if not api_key or not base_url:
+        return None
+
     client = OpenAI(
         base_url=base_url,
         api_key=api_key,
@@ -35,11 +38,11 @@ def generate_commit_msg(diff_data):
         messages=[
             {
                 "role": "system",
-                "content": "You are an assistant that generates clear, concise git commit messages based on code diffs"
+                "content": "You are a developer creating semantic git commit messages following the convention: type(scope): description. Types include feat, fix, docs, style, refactor, perf, test, build, ci, and chore. Keep messages explanatory and comprehensive and provide technical explanation, make sure you do not lose details, use imperative present tense, and focus on what the change does, not how. Don't capitalize first letter or use period at end. Include relevant scope in parentheses when applicable."
             },
             {
                 "role": "user",
-                "content": "What is the meaning of life?"
+                "content": f"Create a clear and well organized semantic commit message for this diff:\n\n{diff_data}"
             }
         ]
     )
@@ -49,7 +52,7 @@ def write_commit_message(commit_file_path, commit_msg):
     #uses data from get_diff() and writes to the commit file, will return PASS or FAIL
     print(f"Received commit file path: {commit_file_path}")
     print(f"Diff data length: {len(commit_msg)}")
-    print(f"First 100 chars of diff: {commit_msg}")
+    print(f"{commit_msg}")
     return PASS
 
 def main():
