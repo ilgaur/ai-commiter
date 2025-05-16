@@ -1,5 +1,6 @@
 import sys
 import subprocess
+from openai import OpenAI
 
 PASS = 0
 FAIL = 1
@@ -10,13 +11,33 @@ def get_diff():
     return result
 
 def generate_commit_msg(diff_data):
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key="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",
+    )
+
+    completion = client.chat.completions.create(
+        extra_body={},
+        model="qwen/qwen3-1.7b:free",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are an assistant that generates clear, concise git commit messages based on code diffs"
+            },
+            {
+                "role": "user",
+                "content": "What is the meaning of life?"
+            }
+        ]
+    )
+    print(completion.choices[0].message.content)
     pass
 
 def write_commit_message(commit_file_path, commit_msg):
     #uses data from get_diff() and writes to the commit file, will return PASS or FAIL
     print(f"Received commit file path: {commit_file_path}")
-    print(f"Diff data length: {len(diff_data)}")
-    print(f"First 100 chars of diff: {diff_data[:100]}")
+    print(f"Diff data length: {len(commit_msg)}")
+    print(f"First 100 chars of diff: {commit_msg[:100]}")
     return PASS
 
 def main():
@@ -24,9 +45,9 @@ def main():
         return FAIL
     commit_msg_file = sys.argv[1]
     diff_data = get_diff()
-#    print(diff_data)
+#   print(diff_data)
     commit_message = generate_commit_msg(diff_data)
-    result = create_commit_message(commit_msg_file, commit_message)
+    result = write_commit_message(commit_msg_file, commit_message)
 
 if __name__ == '__main__':
     sys.exit(main())
