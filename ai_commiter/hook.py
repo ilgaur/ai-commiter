@@ -53,7 +53,12 @@ def write_commit_message(commit_file_path, commit_msg):
     print(f"Received commit file path: {commit_file_path}")
     print(f"Diff data length: {len(commit_msg)}")
     print(f"{commit_msg}")
-    return PASS
+    try:
+        with open(commit_file_path, 'w') as f:
+            f.write(commit_msg)
+        return PASS
+    except Exception as e:
+        return FAIL
 
 def main():
     if len(sys.argv) < 2:
@@ -61,7 +66,8 @@ def main():
     # get_api_config()
     commit_msg_file = sys.argv[1]
     diff_data = get_diff()
-
+    if not diff_data:
+        return FAIL
 #   print(diff_data)
     commit_message = generate_commit_msg(diff_data)
     if commit_message is None:
