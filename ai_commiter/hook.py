@@ -2,9 +2,6 @@ import sys
 import subprocess
 from openai import OpenAI
 
-PASS = 0
-FAIL = 1
-
 def get_diff():
     #returns diff data
     result = subprocess.run(['git', 'diff', '--staged'], capture_output=True, text=True).stdout
@@ -56,22 +53,22 @@ def write_commit_message(commit_file_path, commit_msg):
     try:
         with open(commit_file_path, 'w') as f:
             f.write(commit_msg)
-        return PASS
+        return 0
     except Exception as e:
-        return FAIL
+        return 1
 
 def main():
     if len(sys.argv) < 2:
-        return FAIL
+        return 1
     # get_api_config()
     commit_msg_file = sys.argv[1]
     diff_data = get_diff()
     if not diff_data:
-        return FAIL
+        return 1
 #   print(diff_data)
     commit_message = generate_commit_msg(diff_data)
     if commit_message is None:
-        return FAIL
+        return 1
     result = write_commit_message(commit_msg_file, commit_message)
     return result
 
