@@ -1,6 +1,20 @@
 import sys
 import subprocess
+import os
 from openai import OpenAI
+from dataclasses import dataclass
+
+DEFAULT_SYSTEM_PROMPT = "You are a developer creating semantic git commit messages following the convention: type(scope): description. Types include feat, fix, docs, style, refactor, perf, test, build, ci, and chore. Keep messages explanatory and comprehensive and provide technical explanation, make sure you do not lose details, use imperative present tense, and focus on what the change does, not how. Don't capitalize first letter or use period at end. Include relevant scope in parentheses when applicable."
+DEFAULT_USER_PROMPT = "Create a clear and well organized semantic commit message for this diff"
+DEFAULT_MODEL = "deepseek/deepseek-chat:free"
+
+@dataclass
+class Config:
+    api_key: str
+    base_url: str
+    model: str
+    system_prompt: str
+    user_prompt: str
 
 def get_diff():
     #returns diff data
@@ -9,37 +23,53 @@ def get_diff():
 
 def get_api_config():
     try:
-        api_key = subprocess.check_output(['git', 'config', 'ai-commiter.api-key'], text=True).strip()
-        base_url = subprocess.check_output(['git', 'config', 'ai-commiter.base-url'], text=True).strip()
-        print(f"Retrieved API key: {api_key}")
-        print(f"Retrieved API key: {base_url}")
-        return api_key, base_url
+        api_key = os.environ.get("AI_COMMITER_API_KEY", "")
+        base_url = os.environ.get("AI_COMMITER_BASE_URL", "")
+        model = os.environ.get("AI_COMMITER_MODEL", DEFAULT_MODEL)
+        system_prompt = os.environ.get("AI_COMMITER_SYSTEM_PROMPT", DEFAULT_SYSTEM_PROMPT)
+        user_prompt = os.environ.get("AI_COMMITER_USER_PROMPT", DEFAULT_USER_PROMPT)
+
+        if not api_key:
+            print("API Key is missing")
+            return None
+        if not base_url:
+            print("Base Url is missing")
+            return None
+
+        config = Config(
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt
+        )
+        return config
     except Exception as e:
         print(f"Error retrieving config: {e}")
-        return None, None
+        return None
 
 def generate_commit_msg(diff_data):
-    api_key, base_url = get_api_config()
+    config = get_api_config()
 
-    if not api_key or not base_url:
+    if config is None:
         return None
 
     client = OpenAI(
-        base_url=base_url,
-        api_key=api_key,
+        base_url=config.base_url,
+        api_key=config.api_key,
     )
 
     completion = client.chat.completions.create(
         extra_body={},
-        model="qwen/qwen3-1.7b:free",
+        model=config.model,
         messages=[
             {
                 "role": "system",
-                "content": "You are a developer creating semantic git commit messages following the convention: type(scope): description. Types include feat, fix, docs, style, refactor, perf, test, build, ci, and chore. Keep messages explanatory and comprehensive and provide technical explanation, make sure you do not lose details, use imperative present tense, and focus on what the change does, not how. Don't capitalize first letter or use period at end. Include relevant scope in parentheses when applicable."
+                "content": f"{config.system_prompt}"
             },
             {
                 "role": "user",
-                "content": f"Create a clear and well organized semantic commit message for this diff:\n\n{diff_data}"
+                "content": f"{config.user_prompt}:\n\n{diff_data}"
             }
         ]
     )
