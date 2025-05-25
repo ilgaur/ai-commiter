@@ -1,8 +1,6 @@
-repos:
-  - repo: local
-    hooks:
-      - id: ai-message
-        name: Generate commit message
-        entry: ai-commiter
-        language: python
-        stages: [commit-msg]
+- id: ai-message
+  name: Generate commit message
+  entry: ai-commiter
+  language: python
+  stages: [commit-msg]
+  additional_dependencies: ["openai>=1.0.0"]
