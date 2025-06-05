@@ -21,59 +21,59 @@ def get_diff():
     result = subprocess.run(['git', 'diff', '--staged'], capture_output=True, text=True).stdout
     return result
 
-def get_api_config():
+def get_config_env_vars():
     try:
-        api_key = os.environ.get("AI_COMMITER_API_KEY", "")
-        base_url = os.environ.get("AI_COMMITER_BASE_URL", "")
-        model = os.environ.get("AI_COMMITER_MODEL", DEFAULT_MODEL)
-        system_prompt = os.environ.get("AI_COMMITER_SYSTEM_PROMPT", DEFAULT_SYSTEM_PROMPT)
-        user_prompt = os.environ.get("AI_COMMITER_USER_PROMPT", DEFAULT_USER_PROMPT)
-
-        if not api_key:
-            print("API Key is missing")
-            return None
-        if not base_url:
-            print("Base Url is missing")
-            return None
-
-        config = Config(
-            api_key=api_key,
-            base_url=base_url,
-            model=model,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt
-        )
-        return config
+        return {
+            "api_key": os.environ.get("AI_COMMITER_API_KEY", ""),
+            "base_url": os.environ.get("AI_COMMITER_BASE_URL", ""),
+            "model": os.environ.get("AI_COMMITER_MODEL", DEFAULT_MODEL),
+            "system_prompt": os.environ.get("AI_COMMITER_SYSTEM_PROMPT", DEFAULT_SYSTEM_PROMPT),
+            "user_prompt": os.environ.get("AI_COMMITER_USER_PROMPT", DEFAULT_USER_PROMPT)
+        }
     except Exception as e:
-        print(f"Error retrieving config: {e}")
-        return None
+        raise Exception(f"Error retrieving environment variables: {e}")
 
-def generate_commit_msg(diff_data):
-    config = get_api_config()
+def create_config_from_env_vars(env_vars):
+    try:
+        if not env_vars["api_key"]:
+            raise Exception("API Key is missing")
+        if not env_vars["base_url"]:
+            raise Exception("Base URL is missing")
 
-    if config is None:
-        return None
+        return Config(
+            api_key=env_vars["api_key"],
+            base_url=env_vars["base_url"],
+            model=env_vars["model"],
+            system_prompt=env_vars["system_prompt"],
+            user_prompt=env_vars["user_prompt"]
+        )
+    except Exception as e:
+        raise Exception(f"Can't  create the configuration: {e}")
 
-    client = OpenAI(
-        base_url=config.base_url,
-        api_key=config.api_key,
-    )
+def generate_commit_msg(diff_data, config):
+    try:
+        client = OpenAI(
+            base_url=config.base_url,
+            api_key=config.api_key,
+        )
 
-    completion = client.chat.completions.create(
-        extra_body={},
-        model=config.model,
-        messages=[
-            {
-                "role": "system",
-                "content": f"{config.system_prompt}"
-            },
-            {
-                "role": "user",
-                "content": f"{config.user_prompt}:\n\n{diff_data}"
-            }
-        ]
-    )
-    return completion.choices[0].message.content
+        completion = client.chat.completions.create(
+            extra_body={},
+            model=config.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"{config.system_prompt}"
+                },
+                {
+                    "role": "user",
+                    "content": f"{config.user_prompt}:\n\n{diff_data}"
+                }
+            ]
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        raise Exception(f"Error generating commit message: {e}")
 
 def write_commit_message(commit_file_path, commit_msg):
     #uses data from get_diff() and writes to the commit file, will return PASS or FAIL
@@ -85,22 +85,30 @@ def write_commit_message(commit_file_path, commit_msg):
             f.write(commit_msg)
         return 0
     except Exception as e:
-        return 1
+        raise Exception(f"Error writing commit message: {e}")
 
 def main():
+    #first arg is the script name and the second arg is the file which I'm validating to make sure it exists
     if len(sys.argv) < 2:
         return 1
-    # get_api_config()
-    commit_msg_file = sys.argv[1]
-    diff_data = get_diff()
-    if not diff_data:
+
+    try:
+        env_vars = get_config_env_vars()
+        config = create_config_from_env_vars(env_vars)
+
+        commit_msg_file = sys.argv[1]
+        diff_data = get_diff()
+        if not diff_data:
+            return 1
+
+        commit_message = generate_commit_msg(diff_data, config)
+        if commit_message is None:
+            return 1
+        result = write_commit_message(commit_msg_file, commit_message)
+        return result
+    except Exception as e:
+        print(f"Error: {e}")
         return 1
-#   print(diff_data)
-    commit_message = generate_commit_msg(diff_data)
-    if commit_message is None:
-        return 1
-    result = write_commit_message(commit_msg_file, commit_message)
-    return result
 
 if __name__ == '__main__':
     sys.exit(main())
