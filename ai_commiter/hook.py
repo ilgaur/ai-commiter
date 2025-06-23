@@ -3,10 +3,7 @@ import subprocess
 import os
 from openai import OpenAI
 from dataclasses import dataclass
-
-DEFAULT_SYSTEM_PROMPT = "You are a developer creating semantic git commit messages following the convention: type(scope): description. Types include feat, fix, docs, style, refactor, perf, test, build, ci, and chore. Keep messages explanatory and comprehensive and provide technical explanation, make sure you do not lose details, use imperative present tense, and focus on what the change does, not how. Don't capitalize first letter or use period at end. Include relevant scope in parentheses when applicable."
-DEFAULT_USER_PROMPT = "Create a clear and well organized semantic commit message for this diff"
-DEFAULT_MODEL = "deepseek/deepseek-chat:free"
+from ai_commiter.config import DEFAULT_SYSTEM_PROMPT, DEFAULT_USER_PROMPT, DEFAULT_MODEL
 
 @dataclass
 class Config:
@@ -18,14 +15,17 @@ class Config:
 
 def get_diff():
     #returns diff data
-    result = subprocess.run(['git', 'diff', '--staged'], capture_output=True, text=True).stdout
-    return result
+    try:
+        result = subprocess.run(['git', 'diff', '--staged'], capture_output=True, text=True)
+        return result.stdout
+    except Exception as e:
+        raise Exception(f"Failed to get git diff: {e}")
 
 def get_config_env_vars():
     try:
         return {
-            "api_key": os.environ.get("AI_COMMITER_API_KEY", ""),
-            "base_url": os.environ.get("AI_COMMITER_BASE_URL", ""),
+            "api_key": os.environ.get("AI_COMMITER_API_KEY"),
+            "base_url": os.environ.get("AI_COMMITER_BASE_URL"),
             "model": os.environ.get("AI_COMMITER_MODEL", DEFAULT_MODEL),
             "system_prompt": os.environ.get("AI_COMMITER_SYSTEM_PROMPT", DEFAULT_SYSTEM_PROMPT),
             "user_prompt": os.environ.get("AI_COMMITER_USER_PROMPT", DEFAULT_USER_PROMPT)
@@ -76,42 +76,39 @@ def generate_commit_msg(diff_data, config):
         raise Exception(f"Error generating commit message: {e}")
 
 def write_commit_message(commit_file_path, commit_msg):
-    #uses data from get_diff() and writes to the commit file, will return PASS or FAIL
+    #uses data from get_diff() and writes to the commit file
     print(f"Received commit file path: {commit_file_path}")
     print(f"Diff data length: {len(commit_msg)}")
     print(f"{commit_msg}")
     try:
         with open(commit_file_path, 'w') as f:
             f.write(commit_msg)
-        return 0
     except Exception as e:
         raise Exception(f"Error writing commit message: {e}")
 
-def main():
-    #first arg is the script name and the second arg is the file which I'm validating to make sure it exists
+def validate_arguments():
+    """Validate command line arguments and return the commit message file path."""
+    # first arg is the script name and the second arg is the file which I'm validating to make sure it exists
     if len(sys.argv) < 2:
-        return 1
+        raise ValueError("Missing required argument: commit message file path")
+    return sys.argv[1]
 
-    try:
-        env_vars = get_config_env_vars()
-        config = create_config_from_env_vars(env_vars)
+def main():    
+    commit_msg_file = validate_arguments()
+    
+    env_vars = get_config_env_vars()
+    config = create_config_from_env_vars(env_vars)
+    
+    diff_data = get_diff()
+    if not diff_data:
+        raise RuntimeError("No staged changes found to generate commit message")
 
-        commit_msg_file = sys.argv[1]
-        diff_data = get_diff()
-        if not diff_data:
-            return 1
+    commit_message = generate_commit_msg(diff_data, config)
+    if commit_message is None:
+        raise RuntimeError("Failed to generate commit message")
+    
+    result = write_commit_message(commit_msg_file, commit_message)
+    return result
 
-        commit_message = generate_commit_msg(diff_data, config)
-        if commit_message is None:
-            return 1
-        result = write_commit_message(commit_msg_file, commit_message)
-        return result
-    except Exception as e:
-        print(f"Error: {e}")
-        return 1
-
-if __name__ == '__main__':
-    sys.exit(main())
-
-
-#testing the hook
+if __name__ == "__main__":
+    main()
